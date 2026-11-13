@@ -7,3 +7,6 @@
 .omc/
 # Rendered email previews (pnpm preview:emails)
 api/tmp/
+
+# Cury Labs: Firebase config stays out of git (copied in only for the build)
+android/app/google-services.json
