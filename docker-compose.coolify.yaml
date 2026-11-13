@@ -1,0 +1,114 @@
+# Cury Labs deployment of textbee on Coolify (Cury Avisa, phase 2).
+#
+# Differences from docker-compose.yaml:
+# - No host ports: Coolify's proxy routes the domains to the containers, and
+#   MongoDB/Redis stay on the internal network only.
+# - Pinned images and memory limits (the server is shared with other systems).
+# - No mongo-express.
+# - Every setting comes from Coolify environment variables (no .env files).
+#   NEXT_PUBLIC_* values are passed to the web build, because Next.js bakes
+#   them into the bundle at build time.
+#
+# Domains (set in Coolify): textbee-api -> https://textbee.curylabs.com.br:3001
+#                           textbee-web -> https://textbee-painel.curylabs.com.br:3000
+
+services:
+  textbee-db:
+    image: mongo:8.0
+    restart: always
+    mem_limit: 1g
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_ROOT_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASS}
+      - MONGO_INITDB_DATABASE=textbee
+    volumes:
+      - textbee-mongo-data:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  textbee-redis:
+    image: redis:7.4-alpine
+    restart: always
+    mem_limit: 128m
+    command: redis-server --appendonly yes
+    volumes:
+      - textbee-redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  textbee-api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    restart: always
+    mem_limit: 512m
+    expose:
+      - '3001'
+    environment:
+      - PORT=3001
+      - MONGO_URI=mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASS}@textbee-db:27017/textbee?authSource=admin
+      - REDIS_URL=redis://textbee-redis:6379
+      - USE_SMS_QUEUE=true
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRATION=${JWT_EXPIRATION:-60d}
+      - FRONTEND_URL=${FRONTEND_URL:-https://textbee-painel.curylabs.com.br}
+      - API_PUBLIC_URL=${API_PUBLIC_URL:-https://textbee.curylabs.com.br}
+      - APP_PUBLIC_URL=${APP_PUBLIC_URL:-https://textbee-painel.curylabs.com.br}
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - FIREBASE_PRIVATE_KEY_ID=${FIREBASE_PRIVATE_KEY_ID}
+      - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY}
+      - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL}
+      - FIREBASE_CLIENT_ID=${FIREBASE_CLIENT_ID}
+      - FIREBASE_CLIENT_C509_CERT_URL=${FIREBASE_CLIENT_C509_CERT_URL}
+      - MAIL_HOST=${MAIL_HOST:-smtp-relay.brevo.com}
+      - MAIL_PORT=${MAIL_PORT:-587}
+      - MAIL_USER=${MAIL_USER}
+      - MAIL_PASS=${MAIL_PASS}
+      - MAIL_FROM=${MAIL_FROM:-Cury Avisa <textbee@mail.curylabs.com.br>}
+      - MAIL_REPLY_TO=${MAIL_REPLY_TO:-textbee@mail.curylabs.com.br}
+      - MAIL_FROM_NOTIFICATIONS=${MAIL_FROM:-Cury Avisa <textbee@mail.curylabs.com.br>}
+      - MAIL_REPLY_TO_NOTIFICATIONS=${MAIL_REPLY_TO:-textbee@mail.curylabs.com.br}
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+      - EMAIL_LINK_SECRET=${EMAIL_LINK_SECRET}
+      - CLOUDFLARE_TURNSTILE_SECRET_KEY=${CLOUDFLARE_TURNSTILE_SECRET_KEY:-1x0000000000000000000000000000000AA}
+      - TRUSTED_PROXY=${TRUSTED_PROXY:-true}
+    depends_on:
+      textbee-db:
+        condition: service_healthy
+      textbee-redis:
+        condition: service_healthy
+
+  textbee-web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL:-https://textbee-painel.curylabs.com.br}
+        - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-https://textbee.curylabs.com.br/api/v1}
+        - NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-1x00000000000000000000AA}
+    restart: always
+    mem_limit: 512m
+    expose:
+      - '3000'
+    environment:
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-https://textbee-painel.curylabs.com.br}
+      - NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL:-https://textbee-painel.curylabs.com.br}
+      - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-https://textbee.curylabs.com.br/api/v1}
+      - NEXT_PUBLIC_TURNSTILE_SITE_KEY=${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-1x00000000000000000000AA}
+    depends_on:
+      - textbee-api
+
+volumes:
+  textbee-mongo-data:
+  textbee-redis-data:

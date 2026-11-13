@@ -29,6 +29,15 @@ COPY . .
 # Set environment variables for building
 ENV NEXT_TELEMETRY_DISABLED 1
 
+# Cury Labs: NEXT_PUBLIC_* values are baked into the bundle at build time,
+# so they come in as build args (docker-compose.coolify.yaml passes them).
+ARG NEXT_PUBLIC_SITE_URL
+ARG NEXT_PUBLIC_API_BASE_URL
+ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
+ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
+ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
+
 
 # Build the application
 RUN pnpm build
