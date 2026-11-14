@@ -109,6 +109,29 @@ services:
     depends_on:
       - textbee-api
 
+  # Daily mongodump to the private R2 bucket (one run on start, then daily).
+  # Retention (30 days) is a lifecycle rule on the bucket, not here.
+  textbee-backup:
+    build:
+      context: ./backup
+      dockerfile: Dockerfile
+    restart: always
+    init: true
+    mem_limit: 256m
+    environment:
+      - MONGO_URI=mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASS}@textbee-db:27017/textbee?authSource=admin
+      - R2_BUCKET=${R2_BUCKET:-cury-avisa-backups}
+      - BACKUP_HOUR_UTC=${BACKUP_HOUR_UTC:-6}
+      - RCLONE_CONFIG_R2_TYPE=s3
+      - RCLONE_CONFIG_R2_PROVIDER=Cloudflare
+      - RCLONE_CONFIG_R2_ENDPOINT=${R2_ENDPOINT}
+      - RCLONE_CONFIG_R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - RCLONE_CONFIG_R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+      - RCLONE_CONFIG_R2_NO_CHECK_BUCKET=true
+    depends_on:
+      textbee-db:
+        condition: service_healthy
+
 volumes:
   textbee-mongo-data:
   textbee-redis-data:
