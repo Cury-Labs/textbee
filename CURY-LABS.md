@@ -16,5 +16,8 @@ Changes from upstream (published here to comply with the AGPL):
   bucket (`textbee/` prefix), once on start and daily at `BACKUP_HOUR_UTC` (default 6 UTC).
   Needs `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (and optional `R2_BUCKET`).
   Retention is a lifecycle rule on the bucket.
+- `backup/maintenance.sh` (same service, before each daily backup): wipes SMS texts older than
+  24 hours (they include login codes) and deletes SMS, batches and webhook notifications older
+  than 3 months.
 
 Updating: merge a newer upstream tag into `cury`, test, then redeploy.

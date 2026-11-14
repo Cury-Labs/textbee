@@ -1,11 +1,16 @@
 #!/bin/bash
-# Runs one backup when the container starts (so every deploy proves the backup works),
-# then one per day at BACKUP_HOUR_UTC (default 6 UTC = 3h in Brasília).
+# Runs once when the container starts (so every deploy proves it works), then once per day at
+# BACKUP_HOUR_UTC (default 6 UTC = 3h in Brasília): first the retention clean-up, then the backup.
 set -uo pipefail
 
 hour="${BACKUP_HOUR_UTC:-6}"
 
-/usr/local/bin/backup.sh
+run_daily() {
+  /usr/local/bin/maintenance.sh || echo '{"context":"textbee-maintenance","message":"Retention failed"}'
+  /usr/local/bin/backup.sh
+}
+
+run_daily
 
 while true; do
   now=$(date -u +%s)
@@ -14,5 +19,5 @@ while true; do
     next=$(date -u -d "tomorrow ${hour}:00" +%s)
   fi
   sleep $((next - now))
-  /usr/local/bin/backup.sh
+  run_daily
 done

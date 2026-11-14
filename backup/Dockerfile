@@ -13,6 +13,7 @@ ENV RCLONE_CONFIG=/etc/rclone.conf
 
 COPY backup.sh /usr/local/bin/backup.sh
 COPY backup-loop.sh /usr/local/bin/backup-loop.sh
-RUN chmod +x /usr/local/bin/backup.sh /usr/local/bin/backup-loop.sh
+COPY maintenance.sh /usr/local/bin/maintenance.sh
+RUN chmod +x /usr/local/bin/backup.sh /usr/local/bin/backup-loop.sh /usr/local/bin/maintenance.sh
 
 ENTRYPOINT ["/usr/local/bin/backup-loop.sh"]
