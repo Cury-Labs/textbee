@@ -1,11 +1,12 @@
 # Daily MongoDB backup of textbee to a private Cloudflare R2 bucket (Cury Labs).
-# The mongo image already ships mongodump; rclone uploads the archive to R2.
+# The mongo image already ships mongodump; rclone (pinned, from its official image) uploads to R2.
+# The Ubuntu rclone package (1.60) gets "501 NotImplemented" from R2, so it is not used.
+FROM rclone/rclone:1.68.2 AS rclone
+
 FROM mongo:8.0
 
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends rclone ca-certificates \
-  && rm -rf /var/lib/apt/lists/* \
-  && touch /etc/rclone.conf
+COPY --from=rclone /usr/local/bin/rclone /usr/local/bin/rclone
+RUN touch /etc/rclone.conf
 
 # rclone reads the R2 remote from RCLONE_CONFIG_R2_* variables; the empty file only avoids a warning.
 ENV RCLONE_CONFIG=/etc/rclone.conf
